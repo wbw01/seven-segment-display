@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数码管八段灯动画演示</title>
+<style>
+  :root { color-scheme: light dark; --bg: #101827; --panel: #182438; --text: #eaf1ff; --muted: #93a4c2; --accent: #55e6a5; --border: #30415e; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #0d1422; color: var(--text); }
+  .app { min-height: 100vh; padding: 28px 16px 40px; background: radial-gradient(ellipse at top, #1d3150 0%, #101827 50%, #0b1120 100%); }
+  .wrap { max-width: 980px; margin: auto; }
+  header { margin-bottom: 22px; }
+  .eyebrow { color: var(--accent); font-size: 12px; letter-spacing: .18em; font-weight: 800; }
+  h1 { font-size: clamp(25px, 5vw, 38px); margin: 8px 0; }
+  .sub { color: var(--muted); line-height: 1.7; margin: 0; }
+  .layout { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(280px, .85fr); gap: 18px; }
+  .card { border: 1px solid var(--border); border-radius: 20px; background: rgba(24,36,56,.92); padding: 22px; box-shadow: 0 18px 50px #0003; }
+  .card h2 { margin: 0 0 16px; font-size: 17px; }
+  .display-stage { display: flex; align-items: center; justify-content: center; min-height: 300px; background: #080e18; border: 1px solid #273750; border-radius: 16px; position: relative; overflow: hidden; }
+  .display-stage:before { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent 0 4px, #ffffff05 5px 6px); pointer-events: none; }
+  svg { width: min(100%, 300px); height: auto; overflow: visible; filter: drop-shadow(0 0 15px #ff4c3a1a); }
+  .segment { fill: #3a2028; stroke: #63313b; stroke-width: 1.5; transition: fill .22s, filter .22s; cursor: pointer; }
+  .segment.on { fill: #ff554b; stroke: #ffb1a5; filter: drop-shadow(0 0 5px #ff5148) drop-shadow(0 0 13px #ff5148a8); }
+  .segment.dp.on { fill: #ff554b; }
+  .live-label { position: absolute; left: 16px; bottom: 13px; font-size: 12px; color: #7184a3; }
+  .input-row { display: flex; gap: 10px; margin-top: 16px; }
+  input { min-width: 0; flex: 1; border: 1px solid var(--border); border-radius: 11px; background: #0d1727; color: var(--text); padding: 12px 14px; font-size: 17px; outline: none; }
+  input:focus { border-color: var(--accent); }
+  button { border: 1px solid var(--border); border-radius: 11px; background: #22334d; color: var(--text); padding: 10px 14px; font: inherit; cursor: pointer; transition: transform .15s, background .15s, border-color .15s; }
+  button:hover { background: #304967; border-color: #6883ad; }
+  button:active { transform: scale(.97); }
+  .primary { background: #087e60; border-color: #22bd8e; font-weight: 700; }
+  .primary:hover { background: #099a72; }
+  .digit-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 9px; }
+  .digit-btn { font-size: 20px; font-weight: 750; padding: 13px 0; }
+  .digit-btn.active { background: #0a795c; border-color: #4ae0ae; box-shadow: inset 0 0 0 1px #4ae0ae55; }
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 15px; color: var(--muted); font-size: 14px; }
+  .toggle-row button { padding: 7px 11px; font-size: 13px; }
+  .segments-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 16px; }
+  .seg-chip { display: flex; align-items: center; gap: 7px; background: #111d2e; border: 1px solid #293b55; padding: 9px; border-radius: 10px; color: var(--muted); font-size: 13px; }
+  .lamp { width: 10px; height: 10px; border-radius: 50%; background: #3c2830; border: 1px solid #71404a; }
+  .seg-chip.on { color: var(--text); border-color: #8d4b4b; }
+  .seg-chip.on .lamp { background: #ff554b; border-color: #ffb1a5; box-shadow: 0 0 10px #ff554b; }
+  .info { margin-top: 18px; padding: 14px; background: #111d2e; border-radius: 12px; border: 1px solid #293b55; }
+  .info-title { color: var(--muted); font-size: 12px; margin-bottom: 7px; }
+  .code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 18px; letter-spacing: .12em; color: var(--accent); }
+  .hint { font-size: 13px; color: var(--muted); line-height: 1.7; margin: 14px 0 0; }
+  .footer { margin-top: 18px; color: #7184a3; font-size: 12px; text-align: center; }
+  @media (max-width: 720px) { .layout { grid-template-columns: 1fr; } .card { padding: 17px; } .display-stage { min-height: 260px; } }
+</style>
+</head>
+<body>
+<main class="app">
+<div class="wrap">
+  <header>
+    <div class="eyebrow">ELECTRONICS · INTERACTIVE LAB</div>
+    <h1>数码管 · 八段灯动画演示</h1>
+    <p class="sub">输入 0–9，观察七段数码管与第八个小数点灯如何组合显示数字。也可以直接点击每一段灯，理解段码原理。</p>
+  </header>
+  <div class="layout">
+    <section class="card">
+      <h2>01 / 实时显示器</h2>
+      <div class="display-stage">
+        <svg viewBox="0 0 240 340" role="img" aria-label="八段数码管">
+          <polygon id="seg-a" class="segment" points="48,24 192,24 177,40 63,40" data-seg="a" />
+          <polygon id="seg-b" class="segment" points="195,28 207,40 207,151 190,165 181,151 181,48" data-seg="b" />
+          <polygon id="seg-c" class="segment" points="190,175 207,189 207,300 195,312 181,292 181,189" data-seg="c" />
+          <polygon id="seg-d" class="segment" points="48,316 63,300 177,300 192,316 177,332 63,332" data-seg="d" />
+          <polygon id="seg-e" class="segment" points="33,189 50,175 59,189 59,292 45,312 33,300" data-seg="e" />
+          <polygon id="seg-f" class="segment" points="33,40 45,28 59,48 59,151 50,165 33,151" data-seg="f" />
+          <polygon id="seg-g" class="segment" points="48,170 63,154 177,154 192,170 177,186 63,186" data-seg="g" />
+          <circle id="seg-dp" class="segment dp" cx="218" cy="318" r="10" data-seg="dp" />
+        </svg>
+        <span class="live-label">COMMON CATHODE · 8 SEGMENTS</span>
+      </div>
+      <div class="input-row">
+        <input id="digitInput" type="number" min="0" max="9" step="1" value="8" aria-label="输入数字 0 到 9" placeholder="输入 0–9">
+        <button id="showBtn" class="primary">显示数字</button>
+      </div>
+      <div class="toggle-row"><span>小数点（第 8 段）</span><button id="dpBtn" aria-pressed="false">点亮小数点</button></div>
+      <div class="segments-list" id="segmentList"></div>
+    </section>
+    <section class="card">
+      <h2>02 / 选择数字</h2>
+      <div class="digit-grid" id="digitGrid"></div>
+      <div class="info">
+        <div class="info-title">当前数字的段码（a b c d e f g dp）</div>
+        <div class="code" id="bitCode">1 1 1 1 1 1 1 0</div>
+      </div>
+      <p class="hint"><strong>怎么看？</strong><br>七段灯 a–g 拼出数字轮廓，dp 是右下角的小数点。段码中的 <b>1</b> 表示点亮，<b>0</b> 表示熄灭（本演示按共阴极逻辑显示）。</p>
+      <p class="hint">你也可以点击左侧数码管的任意一段，手动开关它，观察不同组合的效果。</p>
+    </section>
+  </div>
+  <div class="footer">纯 HTML + CSS + JavaScript · 无需安装 · 可离线运行</div>
+</div>
+</main>
+<script>
+  const patterns = {
+    0: ['a','b','c','d','e','f'],
+    1: ['b','c'],
+    2: ['a','b','d','e','g'],
+    3: ['a','b','c','d','g'],
+    4: ['b','c','f','g'],
+    5: ['a','c','d','f','g'],
+    6: ['a','c','d','e','f','g'],
+    7: ['a','b','c'],
+    8: ['a','b','c','d','e','f','g'],
+    9: ['a','b','c','d','f','g']
+  };
+  const names = {a:'a · 顶部', b:'b · 右上', c:'c · 右下', d:'d · 底部', e:'e · 左下', f:'f · 左上', g:'g · 中间', dp:'dp · 小数点'};
+  let currentDigit = 8;
+  let decimalOn = false;
+  let manualMode = false;
+  const allSegs = ['a','b','c','d','e','f','g','dp'];
+  const input = document.getElementById('digitInput');
+  const list = document.getElementById('segmentList');
+  const grid = document.getElementById('digitGrid');
+
+  allSegs.forEach(seg => {
+    const chip = document.createElement('div');
+    chip.className = 'seg-chip';
+    chip.id = 'chip-' + seg;
+    chip.innerHTML = `<span class="lamp"></span><span>${names[seg]}</span>`;
+    list.appendChild(chip);
+    document.getElementById('seg-' + seg).addEventListener('click', () => {
+      manualMode = true;
+      document.getElementById('seg-' + seg).classList.toggle('on');
+      updateStatusFromLamps();
+    });
+  });
+
+  for (let n=0; n<=9; n++) {
+    const btn = document.createElement('button');
+    btn.className = 'digit-btn'; btn.textContent = n; btn.dataset.digit = n;
+    btn.addEventListener('click', () => showDigit(n));
+    grid.appendChild(btn);
+  }
+
+  function showDigit(n) {
+    if (!Number.isInteger(n) || n < 0 || n > 9) {
+      input.setCustomValidity('请输入 0 到 9 的整数'); input.reportValidity(); return;
+    }
+    input.setCustomValidity(''); currentDigit = n; manualMode = false;
+    const on = patterns[n];
+    allSegs.forEach(seg => document.getElementById('seg-' + seg).classList.toggle('on', on.includes(seg) || (seg === 'dp' && decimalOn)));
+    document.querySelectorAll('.digit-btn').forEach(btn => btn.classList.toggle('active', Number(btn.dataset.digit) === n));
+    updateStatus();
+  }
+  function updateStatus() {
+    allSegs.forEach(seg => document.getElementById('chip-' + seg).classList.toggle('on', document.getElementById('seg-' + seg).classList.contains('on')));
+    const bits = allSegs.map(seg => document.getElementById('seg-' + seg).classList.contains('on') ? '1' : '0');
+    document.getElementById('bitCode').textContent = bits.join(' ');
+    document.getElementById('dpBtn').textContent = decimalOn ? '熄灭小数点' : '点亮小数点';
+    document.getElementById('dpBtn').setAttribute('aria-pressed', String(decimalOn));
+  }
+  function updateStatusFromLamps() {
+    allSegs.forEach(seg => document.getElementById('chip-' + seg).classList.toggle('on', document.getElementById('seg-' + seg).classList.contains('on')));
+    const bits = allSegs.map(seg => document.getElementById('seg-' + seg).classList.contains('on') ? '1' : '0');
+    document.getElementById('bitCode').textContent = bits.join(' ');
+    decimalOn = document.getElementById('seg-dp').classList.contains('on');
+    document.getElementById('dpBtn').textContent = decimalOn ? '熄灭小数点' : '点亮小数点';
+    document.getElementById('dpBtn').setAttribute('aria-pressed', String(decimalOn));
+    document.querySelectorAll('.digit-btn').forEach(btn => btn.classList.remove('active'));
+  }
+  document.getElementById('showBtn').addEventListener('click', () => showDigit(Number(input.value)));
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') showDigit(Number(input.value)); });
+  input.addEventListener('input', () => { if (input.value !== '' && Number(input.value) >= 0 && Number(input.value) <= 9) showDigit(Number(input.value)); });
+  document.getElementById('dpBtn').addEventListener('click', () => {
+    decimalOn = !decimalOn;
+    document.getElementById('seg-dp').classList.toggle('on', decimalOn);
+    updateStatus();
+  });
+  showDigit(8);
+</script>
+</body>
+</html>
